@@ -26,8 +26,6 @@ package eu.arthepsy.midpoint
 import org.identityconnectors.framework.common.exceptions.{ConfigurationException, ConnectorException}
 import org.identityconnectors.framework.spi.AbstractConfiguration
 
-class Kaka extends HttpConnector[HttpConfiguration]
-
 class HttpConnectorSpec extends BaseFunSuite {
   var scope: HttpConnectorScope = _
 
@@ -52,7 +50,7 @@ class HttpConnectorSpec extends BaseFunSuite {
     val connector = scope.getConnector
     assertThrows[ConfigurationException] {
       connector.init(new AbstractConfiguration() {
-        override def validate(): Unit = ???
+        override def validate(): Unit = {}
       })
     }
   }

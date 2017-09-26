@@ -71,7 +71,7 @@ class HttpClientSpec extends BaseFunSuite {
     val url = scope.getUrl + prefix
     for (i <- 0 to 3) {
       val slashes = StringUtils.repeat('/', i)
-      client.createUri(slashes + prefix, null).toString shouldBe url
+      client.createUri(slashes + prefix, nullValue).toString shouldBe url
       client.createUri(slashes + prefix, "").toString shouldBe url
       client.createUri(slashes + prefix, "@all").toString shouldBe url + "/@all"
       client.createUri(slashes + prefix, slashes + "@all").toString shouldBe url + "/@all"
@@ -98,7 +98,7 @@ class HttpClientSpec extends BaseFunSuite {
   test("createUri fails with invalid Configuration URL") {
     val config = scope.getConfig
     val client = HttpClient(config)
-    config.setUrl(None.orNull)
+    config.setUrl(nullValue)
     assertThrows[ConfigurationException] {
       client.createUri("/")
     }
@@ -137,8 +137,8 @@ class HttpClientSpec extends BaseFunSuite {
     val req = mock(classOf[HttpUriRequest])
     val config = scope.getConfig
     config.setAuthMethod(BASIC.name)
-    config.setUsername(DEFAULT_USERNAME)
-    config.setPassword(new GuardedString(DEFAULT_PASSWORD.toCharArray))
+    config.setUsername(DefaultUsername)
+    config.setPassword(new GuardedString(DefaultPassword.toCharArray))
     val client = HttpClient(config)
     client.authenticateRequest(req)
     verify(req).setHeader(ArgumentMatchers.eq("Authorization"), ArgumentMatchers.anyString)
@@ -149,8 +149,8 @@ class HttpClientSpec extends BaseFunSuite {
     val req = mock(classOf[HttpUriRequest])
     val config = scope.getConfig
     config.setAuthMethod(BASIC.name)
-    config.setUsername(null)
-    config.setPassword(new GuardedString(DEFAULT_PASSWORD.toCharArray))
+    config.setUsername(nullValue)
+    config.setPassword(new GuardedString(DefaultPassword.toCharArray))
     val client = HttpClient(config)
     client.authenticateRequest(req)
     verifyZeroInteractions(req)
@@ -160,8 +160,8 @@ class HttpClientSpec extends BaseFunSuite {
     val req = mock(classOf[HttpUriRequest])
     val config = scope.getConfig
     config.setAuthMethod(BASIC.name)
-    config.setUsername(DEFAULT_USERNAME)
-    config.setPassword(null)
+    config.setUsername(DefaultUsername)
+    config.setPassword(nullValue)
     val client = HttpClient(config)
     client.authenticateRequest(req)
     verify(req).setHeader(ArgumentMatchers.eq("Authorization"), ArgumentMatchers.anyString)
@@ -172,7 +172,7 @@ class HttpClientSpec extends BaseFunSuite {
     val req = mock(classOf[HttpUriRequest])
     val config = scope.getConfig
     config.setAuthMethod(BASIC.name)
-    config.setUsername(DEFAULT_USERNAME)
+    config.setUsername(DefaultUsername)
     config.setPassword(new GuardedString)
     val client = HttpClient(config)
     client.authenticateRequest(req)
@@ -184,11 +184,11 @@ class HttpClientSpec extends BaseFunSuite {
     val req = mock(classOf[HttpUriRequest])
     val config = scope.getConfig
     config.setAuthMethod(TOKEN.name)
-    config.setTokenName(DEFAULT_TOKEN_NAME)
-    config.setTokenValue(new GuardedString(DEFAULT_TOKEN_VALUE.toCharArray))
+    config.setTokenName(DefaultTokenName)
+    config.setTokenValue(new GuardedString(DefaultTokenValue.toCharArray))
     val client = HttpClient(config)
     client.authenticateRequest(req)
-    verify(req).setHeader(ArgumentMatchers.eq(DEFAULT_TOKEN_NAME), ArgumentMatchers.eq(DEFAULT_TOKEN_VALUE))
+    verify(req).setHeader(ArgumentMatchers.eq(DefaultTokenName), ArgumentMatchers.eq(DefaultTokenValue))
     verifyNoMoreInteractions(req)
   }
 
@@ -196,8 +196,8 @@ class HttpClientSpec extends BaseFunSuite {
     val req = mock(classOf[HttpUriRequest])
     val config = scope.getConfig
     config.setAuthMethod(TOKEN.name)
-    config.setTokenName(null)
-    config.setTokenValue(new GuardedString(DEFAULT_TOKEN_VALUE.toCharArray))
+    config.setTokenName(nullValue)
+    config.setTokenValue(new GuardedString(DefaultTokenValue.toCharArray))
     val client = HttpClient(config)
     client.authenticateRequest(req)
     verifyZeroInteractions(req)
@@ -207,11 +207,11 @@ class HttpClientSpec extends BaseFunSuite {
     val req = mock(classOf[HttpUriRequest])
     val config = scope.getConfig
     config.setAuthMethod(TOKEN.name)
-    config.setTokenName(DEFAULT_TOKEN_NAME)
-    config.setTokenValue(null)
+    config.setTokenName(DefaultTokenName)
+    config.setTokenValue(nullValue)
     val client = HttpClient(config)
     client.authenticateRequest(req)
-    verify(req).setHeader(ArgumentMatchers.eq(DEFAULT_TOKEN_NAME), ArgumentMatchers.eq(""))
+    verify(req).setHeader(ArgumentMatchers.eq(DefaultTokenName), ArgumentMatchers.eq(""))
     verifyNoMoreInteractions(req)
   }
 
@@ -435,7 +435,7 @@ class HttpClientSpec extends BaseFunSuite {
   test("UnauthorizedNotAllowed") {
     val config = scope.getConfig(false, BASIC, true)
     scope.wireMockRule.resetAll()
-    scope.wireMockRule.addStubMapping(DEFAULT_STUB)
+    scope.wireMockRule.addStubMapping(DefaultStub)
     this.getBasicAuthRequestStatusCode(config) shouldBe HttpStatus.SC_OK
   }
 
@@ -456,19 +456,19 @@ class HttpClientSpec extends BaseFunSuite {
 
   test("UnauthorizedNoPassword") {
     val config = scope.getConfig(false, BASIC, true)
-    config.setPassword(null)
+    config.setPassword(nullValue)
     this.getBasicAuthRequestStatusCode(config) shouldBe HttpStatus.SC_UNAUTHORIZED
   }
 
   test("UnauthorizedNoTokenName") {
     val config = scope.getConfig(false, TOKEN, true)
-    config.setTokenName(null)
+    config.setTokenName(nullValue)
     this.getTokenAuthRequestStatusCode(config) shouldBe HttpStatus.SC_UNAUTHORIZED
   }
 
   test("UnauthorizedNoTokenValue") {
     val config = scope.getConfig(false, TOKEN, true)
-    config.setTokenValue(null)
+    config.setTokenValue(nullValue)
     this.getTokenAuthRequestStatusCode(config) shouldBe HttpStatus.SC_UNAUTHORIZED
   }
 
@@ -503,7 +503,7 @@ class HttpClientSpec extends BaseFunSuite {
   }
 
   test("ResponseBodyNull") {
-    this.getRequestBody(null, false) shouldBe None
+    this.getRequestBody(nullValue, false) shouldBe None
   }
 
   test("ResponseBodyExceptionWarn") {

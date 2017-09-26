@@ -37,13 +37,13 @@ class HttpClientScope[A <: HttpConfiguration] {
   var wireMockRule : WireMockRule = _
 
   def getConfig: A = getConfig()
-  def getConfig(https: Option[Boolean] = None, authMethod: HttpConfiguration.AuthMethod = null, startServer: Boolean = false): A = {
+  def getConfig(https: Option[Boolean] = None, authMethod: HttpConfiguration.AuthMethod = None.orNull, startServer: Boolean = false): A = {
     val config = classz.getConstructor().newInstance()
     if (https.isDefined) {
       if (startServer) {
         this.wireMockRule.start()
       }
-      if (https.get) {
+      if (https.getOrElse(false)) {
         config.setTrustAllCertificates(true)
         config.setUrl(this.getUrl(true))
       } else {
@@ -52,37 +52,39 @@ class HttpClientScope[A <: HttpConfiguration] {
       Option(authMethod) match {
         case Some(BASIC) =>
           config.setAuthMethod(HttpConfiguration.BASIC.name)
-          config.setUsername(DEFAULT_USERNAME)
-          config.setPassword(new GuardedString(DEFAULT_PASSWORD.toCharArray))
+          config.setUsername(DefaultUsername)
+          config.setPassword(new GuardedString(DefaultPassword.toCharArray))
         case Some(TOKEN) =>
           config.setAuthMethod(HttpConfiguration.TOKEN.name)
-          config.setTokenName(DEFAULT_TOKEN_NAME)
-          config.setTokenValue(new GuardedString(DEFAULT_TOKEN_VALUE.toCharArray))
+          config.setTokenName(DefaultTokenName)
+          config.setTokenValue(new GuardedString(DefaultTokenValue.toCharArray))
         case _ =>
       }
     }
     config
   }
 
-  def getUrl: String = this.getUrl(this.wireMockRule, false)
+  def getUrl: String = this.getUrl(this.wireMockRule, https = false)
   def getUrl(https: Boolean): String = this.getUrl(this.wireMockRule, https)
   def getUrl(wireMockRule: WireMockRule, https: Boolean): String = {
     val host = "http://127.0.0.1:"
-    if (wireMockRule.isRunning) if (https) return host.replace("http", "https") + this.wireMockRule.httpsPort
-    else return host + this.wireMockRule.port
-    host + "0"
+    if (wireMockRule.isRunning) {
+      if (https) {
+        host.replace("http", "https") + this.wireMockRule.httpsPort
+      } else host + this.wireMockRule.port
+    } else host + "0"
   }
 
 }
 
 object HttpClientScope {
-  val DEFAULT_USERNAME = "admin"
-  val DEFAULT_PASSWORD = "password"
+  val DefaultUsername = "admin"
+  val DefaultPassword = "password"
 
-  val DEFAULT_TOKEN_NAME = "Token"
-  val DEFAULT_TOKEN_VALUE = "abc123"
+  val DefaultTokenName = "Token"
+  val DefaultTokenValue = "abc123"
 
-  val DEFAULT_STUB: StubMapping =
+  val DefaultStub: StubMapping =
     get(anyUrl)
     .atPriority(5)
     .willReturn(aResponse
@@ -94,14 +96,14 @@ object HttpClientScope {
 
   def createWireMock: WireMockRule = {
     val wireMockRule = new WireMockRule(wireMockConfig.dynamicPort.dynamicHttpsPort)
-    wireMockRule.addStubMapping(DEFAULT_STUB)
+    wireMockRule.addStubMapping(DefaultStub)
     wireMockRule
   }
 
   def allowBasicAuth(wireMockRule: WireMockRule, url: String): Unit = {
     wireMockRule.stubFor(
       get(urlPathEqualTo(url))
-        .withBasicAuth(DEFAULT_USERNAME, DEFAULT_PASSWORD)
+        .withBasicAuth(DefaultUsername, DefaultPassword)
         .willReturn(aResponse
           .withStatus(200)
           .withBody("{}")))
@@ -111,7 +113,7 @@ object HttpClientScope {
   def allowTokenAuth(wireMockRule: WireMockRule, url: String): Unit = {
     wireMockRule.stubFor(
       get(urlPathEqualTo(url))
-        .withHeader(DEFAULT_TOKEN_NAME, equalTo(DEFAULT_TOKEN_VALUE))
+        .withHeader(DefaultTokenName, equalTo(DefaultTokenValue))
         .willReturn(aResponse
           .withStatus(200)
           .withBody("{}")))

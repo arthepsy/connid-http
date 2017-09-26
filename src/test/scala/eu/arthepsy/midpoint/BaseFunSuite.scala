@@ -26,6 +26,7 @@ package eu.arthepsy.midpoint
 import org.scalatest._
 
 trait BaseFunSuite extends FunSuite with BeforeAndAfter with Matchers {
+  val nullValue: Null = None.orNull
   abstract override def runTest(testName: String, args: Args): Status = super.runTest(testName, args)
   abstract override def run(testName: Option[String], args: Args): Status = super.run(testName, args)
 }

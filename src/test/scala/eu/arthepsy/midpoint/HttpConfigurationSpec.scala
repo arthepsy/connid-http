@@ -30,24 +30,23 @@ import org.identityconnectors.framework.common.exceptions.ConfigurationException
 class HttpConfigurationSpec extends BaseFunSuite {
   test("default config") {
     val config = new HttpConfiguration
-
-    config should not be null
-    config.getUrl shouldBe null
+    config should not be nullValue
+    config.getUrl shouldBe nullValue
     config.getTrustAllCertificates.booleanValue shouldBe false
-    config.getProxyHost shouldBe null
+    config.getProxyHost shouldBe nullValue
     config.getProxyPort.intValue shouldBe 8080
     config.getAuthMethod shouldBe NONE.name
-    config.getUsername shouldBe null
-    config.getPassword shouldBe null
-    config.getTokenName shouldBe null
-    config.getTokenValue shouldBe null
-    assert(config.toString.startsWith("HttpConfiguration{"))
-    assert(config.toString.endsWith("}"))
+    config.getUsername shouldBe nullValue
+    config.getPassword shouldBe nullValue
+    config.getTokenName shouldBe nullValue
+    config.getTokenValue shouldBe nullValue
+    config.toString should startWith ("HttpConfiguration{")
+    config.toString should endWith ("}")
   }
 
   test("setup config") {
     val config = new HttpConfiguration
-    config should not be null
+    config should not be nullValue
     config.setUrl("http://127.0.0.1")
     config.setTrustAllCertificates(true)
     config.setProxyHost("127.0.0.1")
@@ -71,7 +70,7 @@ class HttpConfigurationSpec extends BaseFunSuite {
 
   test("toString") {
     val config = new HttpConfiguration
-    config.setProxyHost(null)
+    config.setProxyHost(nullValue)
     config.setProxyPort(0)
     config.toString.contains("proxyHost") shouldBe false
     config.toString.contains("proxyPort") shouldBe false
@@ -80,13 +79,13 @@ class HttpConfigurationSpec extends BaseFunSuite {
     config.toString.contains("proxyHost") shouldBe true
     config.toString.contains("proxyPort") shouldBe true
     config.setAuthMethod(BASIC.name)
-    assert(config.toString.contains("username"))
+    config.toString should include ("username")
     config.setAuthMethod(TOKEN.name)
-    assert(config.toString.contains("tokenName"))
+    config.toString should include ("tokenName")
   }
 
   test("AuthMethod") {
-    AuthMethod(null) shouldBe NONE
+    AuthMethod(nullValue) shouldBe NONE
     AuthMethod("unknown") shouldBe NONE
     AuthMethod("basic") shouldBe BASIC
     AuthMethod("basic") shouldBe BASIC
@@ -114,7 +113,7 @@ class HttpConfigurationSpec extends BaseFunSuite {
 
   test("validate Url") {
     val config = this.getConfig
-    config.setUrl(null)
+    config.setUrl(nullValue)
     assertThrows[ConfigurationException] {
       config.validate()
     }
@@ -147,14 +146,14 @@ class HttpConfigurationSpec extends BaseFunSuite {
 
   test("validate proxy port do not care") {
     val config = this.getConfig
-    config.setProxyHost(null)
+    config.setProxyHost(nullValue)
     config.setProxyPort(99999)
     config.validate()
   }
 
   test("validate AuthMethod null") {
     val config = this.getConfig
-    config.setAuthMethod(null)
+    config.setAuthMethod(nullValue)
     assertThrows[ConfigurationException] {
       config.validate()
     }
@@ -185,7 +184,7 @@ class HttpConfigurationSpec extends BaseFunSuite {
   test("validate AuthMethod basic no username") {
     val config = this.getConfig
     config.setAuthMethod(BASIC.name)
-    config.setUsername(null)
+    config.setUsername(nullValue)
     assertThrows[ConfigurationException] {
       config.validate()
     }
@@ -202,7 +201,7 @@ class HttpConfigurationSpec extends BaseFunSuite {
   test("validate AuthMethod token no name") {
     val config = this.getConfig
     config.setAuthMethod(TOKEN.name)
-    config.setTokenName(null)
+    config.setTokenName(nullValue)
     config.setTokenValue(new GuardedString("abc123".toCharArray))
     assertThrows[ConfigurationException] {
       config.validate()
@@ -213,7 +212,7 @@ class HttpConfigurationSpec extends BaseFunSuite {
     val config = this.getConfig
     config.setAuthMethod(TOKEN.name)
     config.setTokenName("token")
-    config.setTokenValue(null)
+    config.setTokenValue(nullValue)
     assertThrows[ConfigurationException] {
       config.validate()
     }

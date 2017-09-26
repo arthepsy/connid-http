@@ -96,8 +96,8 @@ class HttpClient[A <: HttpConfiguration](configuration: A, httpClient: Closeable
 
   private[this] def setHeaders(req: HttpUriRequest, mime: String): Unit = {
     req.setHeader("Content-Type", mime)
-    val HTTP_HEADER_ACCEPT = "Accept"
-    req.setHeader(HTTP_HEADER_ACCEPT, (req.getHeaders(HTTP_HEADER_ACCEPT) ++ mime).mkString)
+    val acceptHeader = "Accept"
+    req.setHeader(acceptHeader, (req.getHeaders(acceptHeader) ++ mime).mkString)
   }
 
   def setJsonHeaders(req: HttpUriRequest): Unit = setHeaders(req, "application/json")
@@ -193,7 +193,7 @@ object HttpClient {
     val builder = HttpClientBuilder.create
     if (configuration.getTrustAllCertificates) {
       val sslContext = SSLContexts.custom
-        .loadTrustMaterial(null, new TrustStrategy {
+        .loadTrustMaterial(None.orNull, new TrustStrategy {
           override def isTrusted(chain: Array[X509Certificate], authType: String): Boolean = true
         })
         .build
