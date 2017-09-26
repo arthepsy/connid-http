@@ -45,7 +45,7 @@ trait HttpConnector[A >: Null <: HttpConfiguration] extends Connector {
     log.info("Initializing connector with config: {0}", configuration)
     Try(configuration).map(_.asInstanceOf[A]).toOption match {
       case Some(c) =>
-        this.internalConfiguration = Option(c.asInstanceOf[A])
+        this.internalConfiguration = Option(c)
         this.internalClient = Option(HttpClient(this.getConfiguration))
       case _ =>
         throw new ConfigurationException(

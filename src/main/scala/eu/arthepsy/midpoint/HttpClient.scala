@@ -145,34 +145,35 @@ class HttpClient[A <: HttpConfiguration](configuration: A, httpClient: Closeable
   def processResponse(response: CloseableHttpResponse, validCodes: Seq[Int], errorCodes: Seq[Int], contentFail: Boolean): Option[String] = {
     val statusCode = response.getStatusLine.getStatusCode
     val content = this.getResponseBody(response, contentFail)
-    if (validCodes.contains(statusCode)) {
+    if (! validCodes.contains(statusCode)) {
+      val reason = response.getStatusLine.getReasonPhrase
+      val message = s"HTTP error: $statusCode $reason ${content.getOrElse("")}"
+      val exception = if (errorCodes.contains(statusCode)) {
+        statusCode match {
+          case 400 | 405 | 406 =>
+            new ConnectorIOException(message)
+          case 401 | 402 | 403 | 407 =>
+            new PermissionDeniedException(message)
+          case 404 | 410 =>
+            new UnknownUidException(message)
+          case 408 =>
+            new OperationTimeoutException(message)
+          case 409 =>
+            new AlreadyExistsException(message)
+          case 412 =>
+            new PreconditionFailedException(message)
+          case 418 | 501 =>
+            new UnsupportedOperationException(message)
+          case _ =>
+            new ConnectorException(message)
+        }
+      } else new ConnectorException(message)
       this.closeResponse(response)
-      return content
+      throw exception
+    } else {
+      this.closeResponse(response)
+      content
     }
-    val reason = response.getStatusLine.getReasonPhrase
-    val message = s"HTTP error: $statusCode $reason ${content.getOrElse("")}"
-    val exception = if (errorCodes.contains(statusCode)) {
-      statusCode match {
-        case 400 | 405 | 406 =>
-          new ConnectorIOException(message)
-        case 401 | 402 | 403 | 407 =>
-          new PermissionDeniedException(message)
-        case 404 | 410 =>
-          new UnknownUidException(message)
-        case 408 =>
-          new OperationTimeoutException(message)
-        case 409 =>
-          new AlreadyExistsException(message)
-        case 412 =>
-          new PreconditionFailedException(message)
-        case 418 | 501 =>
-          new UnsupportedOperationException(message)
-        case _ =>
-          new ConnectorException(message)
-      }
-    } else new ConnectorException(message)
-    this.closeResponse(response)
-    throw exception
   }
 
   def closeResponse(response: CloseableHttpResponse): Unit =
