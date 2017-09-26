@@ -51,15 +51,13 @@ class HttpClient[A <: HttpConfiguration](configuration: A, httpClient: Closeable
   private val log = Log.getLog(getClass)
 
   def dispose(): Unit = Try(this.httpClient.close()) match {
-      case Failure(e) => log.error(e, "{0}", e.getMessage)
-      case Success(_) =>
+    case Failure(e) => log.error(e, "{0}", e.getMessage)
+    case Success(_) =>
   }
 
   def createUri(postfixes: String*): URIBuilder = {
     val uri = Try(URI.create(this.configuration.getUrl)) match {
-      case Failure(e) => {
-        throw new ConfigurationException(e.getMessage, e)
-      }
+      case Failure(e) =>throw new ConfigurationException(e.getMessage, e)
       case Success(v) => v
     }
     val sb = new StringBuilder
@@ -119,13 +117,14 @@ class HttpClient[A <: HttpConfiguration](configuration: A, httpClient: Closeable
       case _ =>
     }
 
-  def executeRequest(request: HttpUriRequest): CloseableHttpResponse = Try {
-    log.info("request to {0}", request.getURI.toString)
-    this.httpClient.execute(request)
-  } match {
-    case Failure(e) => throw new ConnectorIOException(e.getMessage, e)
-    case Success(v) => v
-  }
+  def executeRequest(request: HttpUriRequest): CloseableHttpResponse =
+    Try {
+      log.info("request to {0}", request.getURI.toString)
+      this.httpClient.execute(request)
+    } match {
+      case Failure(e) => throw new ConnectorIOException(e.getMessage, e)
+      case Success(v) => v
+    }
 
   def getResponseBody(response: CloseableHttpResponse, fail: Boolean): Option[String] =
     Try(Option(response.getEntity).map(EntityUtils.toString)) match {
@@ -219,11 +218,11 @@ object HttpClient {
     def reveal: Option[String] = {
       val sb = StringBuilder.newBuilder
       Option(gs).foreach(_.access(new GuardedString.Accessor {
-          override def access(chars: Array[Char]): Unit = {
-            sb.append(new String(chars))
-            ()
-          }
-        }))
+        override def access(chars: Array[Char]): Unit = {
+          sb.append(new String(chars))
+          ()
+        }
+      }))
       if (sb.nonEmpty) Some(sb.mkString) else None
     }
   }
