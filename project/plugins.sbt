@@ -7,3 +7,8 @@ addSbtPlugin("com.sksamuel.scapegoat" %% "sbt-scapegoat" % "1.0.5")
 // sbt 1.0+
 // addSbtPlugin("de.heikoseeberger" % "sbt-header" % "3.0.2")
 // addSbtPlugin("com.sksamuel.scapegoat" %% "sbt-scapegoat" % "1.0.7")
+
+dependencyOverrides ++= Set (
+  "com.fasterxml.jackson.core"        %  "jackson-core"                % "2.9.1",
+  "com.fasterxml.jackson.module"      %% "jackson-module-scala"        % "2.9.1"
+)
