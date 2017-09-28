@@ -1,12 +1,11 @@
 val connIdVersion = "1.4.2.35"
 
 lazy val root = (project in file("."))
-  .enablePlugins(AutomateHeaderPlugin)
+  .enablePlugins(GitVersioning, AutomateHeaderPlugin)
   .settings(
     organization := "eu.arthepsy.midpoint",
     name := "connid-http",
     description := "Library for http-based ConnId connectors",
-    version := "1.0-SNAPSHOT",
 
     scalaVersion := "2.12.3",
     crossScalaVersions := Seq(scalaVersion.value, "2.11.11", "2.10.6", "0.3.0-RC2"),
@@ -34,6 +33,17 @@ lazy val root = (project in file("."))
       "org.mockito" % "mockito-core" % "2.10.0" % "test",
       "com.github.tomakehurst" % "wiremock" % "2.8.0" % "test"
     ),
+
+    git.baseVersion := "1.0",
+    git.useGitDescribe := true,
+    git.uncommittedSignifier := None,
+
+    bintrayOrganization := None,
+    bintrayRepository := "maven",
+    publishMavenStyle := true,
+
+    PgpKeys.useGpg in Global := true,
+    PgpKeys.gpgCommand in Global := "gpg2",
 
     licenses := Seq("MIT" -> url("https://opensource.org/licenses/MIT")),
     headerLicense := Some(HeaderLicense.Custom(IO.read(baseDirectory.value / "LICENSE.md")))
