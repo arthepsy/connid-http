@@ -1,4 +1,4 @@
-scapegoatVersion in ThisBuild := "1.3.2"
+scapegoatVersion in ThisBuild := "1.3.3"
 
 val scapegoatAvailable = Def.setting {
   val versions = "sbt " + sbtVersion.value +

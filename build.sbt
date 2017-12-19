@@ -7,8 +7,8 @@ lazy val root = (project in file("."))
     name := "connid-http",
     description := "Library for http-based ConnId connectors",
 
-    scalaVersion := "2.12.3",
-    crossScalaVersions := Seq(scalaVersion.value, "2.11.11", "2.10.6", "0.3.0-RC2"),
+    scalaVersion := "2.12.4",
+    crossScalaVersions := Seq(scalaVersion.value, "2.11.12", "2.13.0-M2", "0.5.0-RC1"),
 
     resolvers ++= Seq(
       "Evolveum releases" at "https://nexus.evolveum.com/nexus/content/repositories/releases/",
@@ -20,18 +20,17 @@ lazy val root = (project in file("."))
     ),
 
     libraryDependencies ++= Seq(
-      "org.json" % "json" % "20170516",
-      "org.apache.httpcomponents" % "httpclient" % "4.5.3"
+      "org.apache.httpcomponents" % "httpclient" % "4.5.4"
     ),
 
     fork in Test := true,
     libraryDependencies ++= (scalaVersion.value match {
-      case "0.3.0-RC2" => Seq("org.scalatest" % "scalatest_2.11" % "3.0.3" % "test")
-      case _ => Seq("org.scalatest" %% "scalatest" % "3.0.3" % "test")
+      case "0.5.0-RC1" => Seq("org.scalatest" % "scalatest_2.12" % "3.0.4" % "test")
+      case _ => Seq("org.scalatest" %% "scalatest" % "3.0.4" % "test")
     }),
     libraryDependencies ++= Seq(
-      "org.mockito" % "mockito-core" % "2.10.0" % "test",
-      "com.github.tomakehurst" % "wiremock" % "2.8.0" % "test"
+      "org.mockito" % "mockito-core" % "2.13.0" % "test",
+      "com.github.tomakehurst" % "wiremock" % "2.12.0" % "test"
     ),
 
     git.baseVersion := "1.0",
@@ -41,6 +40,7 @@ lazy val root = (project in file("."))
     bintrayOrganization := None,
     bintrayRepository := "maven",
     publishMavenStyle := true,
+    publishArtifact in Test := true,
 
     PgpKeys.useGpg in Global := true,
     PgpKeys.gpgCommand in Global := "gpg2",

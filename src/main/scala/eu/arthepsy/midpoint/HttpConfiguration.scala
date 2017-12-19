@@ -128,7 +128,7 @@ object HttpConfiguration {
   case object TOKEN extends AuthMethod("token")
 
   object AuthMethod {
-    val values = Seq(NONE, BASIC, TOKEN)
+    val values = Seq[AuthMethod](NONE, BASIC, TOKEN)
     def apply(value: String): AuthMethod = Option(value).map(_.toLowerCase) match {
       case Some(BASIC.name) => BASIC
       case Some(TOKEN.name) => TOKEN

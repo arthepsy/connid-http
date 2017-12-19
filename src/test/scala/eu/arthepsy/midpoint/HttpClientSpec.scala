@@ -24,6 +24,7 @@
 package eu.arthepsy.midpoint
 
 import java.io.{ByteArrayInputStream, IOException}
+import java.net.URI
 import java.nio.charset.StandardCharsets
 
 import com.github.tomakehurst.wiremock.client.WireMock.{aResponse, get, urlMatching}
@@ -39,6 +40,7 @@ import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
 
 class HttpClientSpec extends BaseFunSuite {
+  import HttpClient._
   import HttpClientScope._
   import HttpConfiguration._
 
@@ -51,10 +53,10 @@ class HttpClientSpec extends BaseFunSuite {
   }
 
   test("Dispose") {
-    val client = HttpClient(scope.getConfig)
+    implicit val client = HttpClient(scope.getConfig)
     client.dispose()
     assertThrows[ConnectorIOException] {
-      client.executeRequest(new HttpGet(scope.getUrl))
+      client.createRequest(new URI(scope.getUrl), classOf[HttpGet]).execute
     }
   }
 
@@ -111,7 +113,7 @@ class HttpClientSpec extends BaseFunSuite {
   test("json headers applied") {
     val client = HttpClient(scope.getConfig(false))
     val req = client.createRequest(client.createUri("/"), classOf[HttpGet])
-    client.setJsonHeaders(req)
+    req.asJson.acceptJson
     req.getHeaders("Content-Type").map(_.getValue).contains("application/json") shouldBe true
     req.getHeaders("Accept").map(_.getValue).contains("application/json") shouldBe true
   }
@@ -119,17 +121,35 @@ class HttpClientSpec extends BaseFunSuite {
   test("xml headers applied") {
     val client = HttpClient(scope.getConfig(false))
     val req = client.createRequest(client.createUri("/"), classOf[HttpGet])
-    client.setXmlHeaders(req)
+    req.asXml.acceptXml
     req.getHeaders("Content-Type").map(_.getValue).contains("application/xml") shouldBe true
     req.getHeaders("Accept").map(_.getValue).contains("application/xml") shouldBe true
+  }
+
+  test("text xml headers applied") {
+    val client = HttpClient(scope.getConfig(false))
+    val req = client.createRequest(client.createUri("/"), classOf[HttpGet])
+    req.asTextXml.acceptTextXml
+    req.getHeaders("Content-Type").map(_.getValue).contains("text/xml") shouldBe true
+    req.getHeaders("Accept").map(_.getValue).contains("text/xml") shouldBe true
+  }
+
+  test("accept headers") {
+    val client = HttpClient(scope.getConfig(false))
+    val req = client.createRequest(client.createUri("/"), classOf[HttpGet])
+    req.setHeader("Accept", "text/html")
+    req.getHeaders("Accept").map(_.getValue).contains("text/html") shouldBe true
+    req.acceptJson
+    req.getHeaders("Accept").flatMap(_.getValue.split(",")).contains("application/json") shouldBe true
+    req.getHeaders("Accept").flatMap(_.getValue.split(",")).contains("text/html") shouldBe true
   }
 
   test("RequestAuthenticationNoAuth") {
     val req = mock(classOf[HttpUriRequest])
     val config = scope.getConfig
     config.setAuthMethod(NONE.name)
-    val client = HttpClient(config)
-    client.authenticateRequest(req)
+    implicit val client = HttpClient(config)
+    req.authenticate
     verifyZeroInteractions(req)
   }
 
@@ -139,8 +159,8 @@ class HttpClientSpec extends BaseFunSuite {
     config.setAuthMethod(BASIC.name)
     config.setUsername(DefaultUsername)
     config.setPassword(new GuardedString(DefaultPassword.toCharArray))
-    val client = HttpClient(config)
-    client.authenticateRequest(req)
+    implicit val client = HttpClient(config)
+    req.authenticate
     verify(req).setHeader(ArgumentMatchers.eq("Authorization"), ArgumentMatchers.anyString)
     verifyNoMoreInteractions(req)
   }
@@ -151,8 +171,8 @@ class HttpClientSpec extends BaseFunSuite {
     config.setAuthMethod(BASIC.name)
     config.setUsername(nullValue)
     config.setPassword(new GuardedString(DefaultPassword.toCharArray))
-    val client = HttpClient(config)
-    client.authenticateRequest(req)
+    implicit val client = HttpClient(config)
+    req.authenticate
     verifyZeroInteractions(req)
   }
 
@@ -162,8 +182,8 @@ class HttpClientSpec extends BaseFunSuite {
     config.setAuthMethod(BASIC.name)
     config.setUsername(DefaultUsername)
     config.setPassword(nullValue)
-    val client = HttpClient(config)
-    client.authenticateRequest(req)
+    implicit val client = HttpClient(config)
+    req.authenticate
     verify(req).setHeader(ArgumentMatchers.eq("Authorization"), ArgumentMatchers.anyString)
     verifyNoMoreInteractions(req)
   }
@@ -174,8 +194,8 @@ class HttpClientSpec extends BaseFunSuite {
     config.setAuthMethod(BASIC.name)
     config.setUsername(DefaultUsername)
     config.setPassword(new GuardedString)
-    val client = HttpClient(config)
-    client.authenticateRequest(req)
+    implicit val client = HttpClient(config)
+    req.authenticate
     verify(req).setHeader(ArgumentMatchers.eq("Authorization"), ArgumentMatchers.anyString)
     verifyNoMoreInteractions(req)
   }
@@ -186,8 +206,8 @@ class HttpClientSpec extends BaseFunSuite {
     config.setAuthMethod(TOKEN.name)
     config.setTokenName(DefaultTokenName)
     config.setTokenValue(new GuardedString(DefaultTokenValue.toCharArray))
-    val client = HttpClient(config)
-    client.authenticateRequest(req)
+    implicit val client = HttpClient(config)
+    req.authenticate
     verify(req).setHeader(ArgumentMatchers.eq(DefaultTokenName), ArgumentMatchers.eq(DefaultTokenValue))
     verifyNoMoreInteractions(req)
   }
@@ -198,8 +218,8 @@ class HttpClientSpec extends BaseFunSuite {
     config.setAuthMethod(TOKEN.name)
     config.setTokenName(nullValue)
     config.setTokenValue(new GuardedString(DefaultTokenValue.toCharArray))
-    val client = HttpClient(config)
-    client.authenticateRequest(req)
+    implicit val client = HttpClient(config)
+    req.authenticate
     verifyZeroInteractions(req)
   }
 
@@ -209,8 +229,8 @@ class HttpClientSpec extends BaseFunSuite {
     config.setAuthMethod(TOKEN.name)
     config.setTokenName(DefaultTokenName)
     config.setTokenValue(nullValue)
-    val client = HttpClient(config)
-    client.authenticateRequest(req)
+    implicit val client = HttpClient(config)
+    req.authenticate
     verify(req).setHeader(ArgumentMatchers.eq(DefaultTokenName), ArgumentMatchers.eq(""))
     verifyNoMoreInteractions(req)
   }
@@ -224,8 +244,8 @@ class HttpClientSpec extends BaseFunSuite {
     val statusLine = mock(classOf[StatusLine])
     when(response.getStatusLine).thenReturn(statusLine)
     when(statusLine.getStatusCode).thenReturn(statusCode)
-    val client = HttpClient(scope.getConfig)
-    client.processResponse(response, Array[Int](200), Array[Int](errorCode))
+    implicit val client = HttpClient(scope.getConfig)
+    response.process(Array[Int](200), Array[Int](errorCode))
     ()
   }
 
@@ -383,9 +403,8 @@ class HttpClientSpec extends BaseFunSuite {
   }
 
   private def getResponse(client: HttpClient[HttpConfiguration], url: String) = {
-    val req = client.createRequest(client.createUri(url), classOf[HttpGet])
-    client.setJsonHeaders(req)
-    client.executeRequest(req)
+    implicit val c = client
+    client.createRequest(client.createUri(url), classOf[HttpGet]).execute
   }
 
   private def getBasicAuthRequestStatusCode(config: HttpConfiguration) = {
@@ -440,12 +459,11 @@ class HttpClientSpec extends BaseFunSuite {
   }
 
   test("UnauthorizedNoAuthHeader") {
-    val client = HttpClient(scope.getConfig(false, BASIC, true))
+    implicit val client: HttpClient[HttpConfiguration] = HttpClient(scope.getConfig(false, BASIC, true))
     val url = "/protected"
     allowBasicAuth(scope.wireMockRule, url)
     val req = client.createRequest(client.createUri(url), classOf[HttpGet], false)
-    client.setJsonHeaders(req)
-    client.executeRequest(req).getStatusLine.getStatusCode shouldBe HttpStatus.SC_UNAUTHORIZED
+    req.asJson.execute.getStatusLine.getStatusCode shouldBe HttpStatus.SC_UNAUTHORIZED
   }
 
   test("UnauthorizedNoAuthMethod") {
@@ -474,26 +492,26 @@ class HttpClientSpec extends BaseFunSuite {
 
   test("ExecuteRequestException") {
     val httpClient = mock(classOf[CloseableHttpClient])
-    val client = new HttpClient(scope.getConfig(false), httpClient)
+    implicit val client = new HttpClient(scope.getConfig(false), httpClient)
     doThrow(new IOException).when(httpClient).execute(ArgumentMatchers.any[HttpUriRequest]())
-    val req = client.createRequest(client.createUri("/"), classOf[HttpGet])
-    client.setJsonHeaders(req)
+    val req = client.createRequest(client.createUri("/"), classOf[HttpGet]).asJson
     assertThrows[ConnectorIOException] {
-      client.executeRequest(req)
+      req.execute
     }
   }
 
   test("CloseResponseException") {
     val response = mock(classOf[CloseableHttpResponse])
-    val client = HttpClient(scope.getConfig)
+    implicit val client = HttpClient(scope.getConfig)
     doThrow(new IOException).when(response).close()
-    client.closeResponse(response)
+    response.tryClose
   }
 
-  private def getRequestBody(entity: HttpEntity, fail: Boolean) = {
+  private def getRequestBody[A](entity: HttpEntity, fail: Boolean) = {
     val response = mock(classOf[CloseableHttpResponse])
     when(response.getEntity).thenReturn(entity)
-    HttpClient(scope.getConfig).getResponseBody(response, fail)
+    implicit val client = HttpClient(scope.getConfig)
+    response.getContent(fail)
   }
 
   test("ResponseBody") {

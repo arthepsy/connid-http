@@ -45,9 +45,10 @@ import org.identityconnectors.framework.common.exceptions._
 
 import scala.util.{Failure, Success, Try}
 
-class HttpClient[A <: HttpConfiguration](configuration: A, httpClient: CloseableHttpClient) {
+class HttpClient[A <: HttpConfiguration](private val configuration: A, private val httpClient: CloseableHttpClient) {
   import HttpClient._
 
+  implicit val self: HttpClient[A] = this
   private val log = Log.getLog(getClass)
 
   def dispose(): Unit = Try(this.httpClient.close()) match {
@@ -62,17 +63,31 @@ class HttpClient[A <: HttpConfiguration](configuration: A, httpClient: Closeable
     }
     val sb = new StringBuilder
     sb.append(uri.getPath.replaceFirst("/*$", ""))
-    for (postfix <- postfixes) {
-      if (StringUtil.isNotBlank(postfix)) {
-        sb.append('/')
-        sb.append(postfix.replaceFirst("^/+", "").replaceFirst("/*$", ""))
-      }
-    }
+    postfixes.filter(StringUtil.isNotBlank).foreach(postfix => {
+      sb.append('/')
+      sb.append(postfix.replaceFirst("^/+", "").replaceFirst("/*$", ""))
+    })
     new URIBuilder()
       .setScheme(uri.getScheme)
       .setHost(uri.getHost)
       .setPort(uri.getPort)
       .setPath(sb.mkString)
+  }
+
+  def createRequest[B >: Null <: HttpUriRequest](uri: URI, reqClass: Class[B]): B = {
+    createRequest(uri, reqClass, authenticate = true)
+  }
+  def createRequest[B >: Null <: HttpUriRequest](uri: URI, reqClass: Class[B], authenticate: Boolean): B = {
+    val request = Try(reqClass.getConstructor(classOf[URI]).newInstance(uri)) match {
+      case Failure(e) =>
+        log.error(e, "Failed to build HTTP request")
+        throw new ConnectorException(e.getMessage, e)
+      case Success(v) => v
+    }
+    if (authenticate) {
+      request.authenticate
+    }
+    request
   }
 
   def createRequest[B >: Null <: HttpUriRequest](uriBuilder: URIBuilder, reqClass: Class[B], authenticate: Boolean = true): B = {
@@ -82,104 +97,10 @@ class HttpClient[A <: HttpConfiguration](configuration: A, httpClient: Closeable
         throw new ConnectorException(e.getMessage, e)
       case Success(v) => v
     }
-    val request = Try(reqClass.getConstructor(classOf[URI]).newInstance(uri)) match {
-      case Failure(e) =>
-        log.error(e, "Failed to build HTTP request")
-        throw new ConnectorException(e.getMessage, e)
-      case Success(v) => v
-    }
-    if (authenticate) {
-      this.authenticateRequest(request)
-    }
-    request
+    createRequest(uri, reqClass, authenticate)
   }
 
-  private[this] def setHeaders(req: HttpUriRequest, mime: String): Unit = {
-    req.setHeader("Content-Type", mime)
-    val acceptHeader = "Accept"
-    req.setHeader(acceptHeader, (req.getHeaders(acceptHeader) ++ mime).mkString)
-  }
 
-  def setJsonHeaders(req: HttpUriRequest): Unit = setHeaders(req, "application/json")
-
-  def setXmlHeaders(req: HttpUriRequest): Unit = setHeaders(req, "application/xml")
-
-  def authenticateRequest(req: HttpUriRequest): Unit =
-    AuthMethod(this.configuration.getAuthMethod) match {
-      case BASIC if Option(this.configuration.getUsername).isDefined =>
-        val auth: StringBuilder = new StringBuilder
-        auth.append(this.configuration.getUsername).append(':')
-        auth.append(Option(this.configuration.getPassword).flatMap(_.reveal).getOrElse(""))
-        req.setHeader("Authorization", "Basic " + Base64.encode(auth.toString.getBytes(StandardCharsets.UTF_8)))
-      case TOKEN if Option(this.configuration.getTokenName).isDefined =>
-        val tokenValue = Option(this.configuration.getTokenValue).flatMap(_.reveal).getOrElse("")
-        req.setHeader(this.configuration.getTokenName, tokenValue)
-      case _ =>
-    }
-
-  def executeRequest(request: HttpUriRequest): CloseableHttpResponse =
-    Try {
-      log.info("request to {0}", request.getURI.toString)
-      this.httpClient.execute(request)
-    } match {
-      case Failure(e) => throw new ConnectorIOException(e.getMessage, e)
-      case Success(v) => v
-    }
-
-  def getResponseBody(response: CloseableHttpResponse, fail: Boolean): Option[String] =
-    Try(Option(response.getEntity).map(EntityUtils.toString)) match {
-      case Failure(e) =>
-        if (fail) {
-          throw new ConnectorIOException(e.getMessage, e)
-        } else {
-          log.warn(e, "{0}", e.getMessage)
-          None
-        }
-      case Success(v) => v
-    }
-
-  def processResponse(response: CloseableHttpResponse, validCodes: Seq[Int], errorCodes: Seq[Int]): Option[String] =
-    this.processResponse(response, validCodes, errorCodes, contentFail = false)
-
-  def processResponse(response: CloseableHttpResponse, validCodes: Seq[Int], errorCodes: Seq[Int], contentFail: Boolean): Option[String] = {
-    val statusCode = response.getStatusLine.getStatusCode
-    val content = this.getResponseBody(response, contentFail)
-    if (! validCodes.contains(statusCode)) {
-      val reason = response.getStatusLine.getReasonPhrase
-      val message = s"HTTP error: $statusCode $reason ${content.getOrElse("")}"
-      val exception = if (errorCodes.contains(statusCode)) {
-        statusCode match {
-          case 400 | 405 | 406 =>
-            new ConnectorIOException(message)
-          case 401 | 402 | 403 | 407 =>
-            new PermissionDeniedException(message)
-          case 404 | 410 =>
-            new UnknownUidException(message)
-          case 408 =>
-            new OperationTimeoutException(message)
-          case 409 =>
-            new AlreadyExistsException(message)
-          case 412 =>
-            new PreconditionFailedException(message)
-          case 418 | 501 =>
-            new UnsupportedOperationException(message)
-          case _ =>
-            new ConnectorException(message)
-        }
-      } else new ConnectorException(message)
-      this.closeResponse(response)
-      throw exception
-    } else {
-      this.closeResponse(response)
-      content
-    }
-  }
-
-  def closeResponse(response: CloseableHttpResponse): Unit =
-    Try(response.close()) match {
-      case Failure(e) => log.warn(e, "{0}", e.getMessage)
-      case Success(_) =>
-    }
 }
 
 object HttpClient {
@@ -214,17 +135,121 @@ object HttpClient {
     builder.build
   }
 
-  implicit private class RevealingGuardedString(val gs: GuardedString) {
-    def reveal: Option[String] = {
-      val sb = StringBuilder.newBuilder
-      Option(gs).foreach(_.access(new GuardedString.Accessor {
-        override def access(chars: Array[Char]): Unit = {
-          sb.append(new String(chars))
-          ()
-        }
-      }))
-      if (sb.nonEmpty) Some(sb.mkString) else None
+  implicit class RequestMethods[A <: HttpConfiguration, B >: Null <: HttpUriRequest](val request: B) {
+    implicit private class RevealingGuardedString(val gs: GuardedString) {
+      def reveal: Option[String] = {
+        val sb = StringBuilder.newBuilder
+        Option(gs).foreach(_.access(new GuardedString.Accessor {
+          override def access(chars: Array[Char]): Unit = {
+            sb.append(new String(chars))
+            ()
+          }
+        }))
+        if (sb.nonEmpty) Some(sb.mkString) else None
+      }
     }
+
+    private[this] def setContentType(contentType: String): HttpUriRequest = {
+      request.setHeader("Content-Type", contentType)
+      request
+    }
+    private[this] def acceptContentType(contentType: String)  = {
+      val acceptHeader = "Accept"
+      request.setHeader(acceptHeader, (request.getHeaders(acceptHeader).map(_.getValue) :+ contentType).mkString(","))
+      request
+    }
+
+    val CONTENT_TYPE_JSON = "application/json"
+    val CONTENT_TYPE_XML= "application/xml"
+    val CONTENT_TYPE_TEXT_XML = "text/xml"
+
+    def asJson: HttpUriRequest = setContentType(CONTENT_TYPE_JSON)
+    def asXml: HttpUriRequest = setContentType(CONTENT_TYPE_XML)
+    def asTextXml: HttpUriRequest = setContentType(CONTENT_TYPE_TEXT_XML)
+    def acceptJson: HttpUriRequest = acceptContentType(CONTENT_TYPE_JSON)
+    def acceptXml: HttpUriRequest = acceptContentType(CONTENT_TYPE_XML)
+    def acceptTextXml: HttpUriRequest = acceptContentType(CONTENT_TYPE_TEXT_XML)
+
+    def authenticate(implicit client: HttpClient[A]): HttpClient[A] = {
+      AuthMethod(client.configuration.getAuthMethod) match {
+        case BASIC if Option(client.configuration.getUsername).isDefined =>
+          val auth: StringBuilder = new StringBuilder
+          auth.append(client.configuration.getUsername).append(':')
+          auth.append(Option(client.configuration.getPassword).flatMap(_.reveal).getOrElse(""))
+          request.setHeader("Authorization", "Basic " + Base64.encode(auth.toString.getBytes(StandardCharsets.UTF_8)))
+        case TOKEN if Option(client.configuration.getTokenName).isDefined =>
+          val tokenValue = Option(client.configuration.getTokenValue).flatMap(_.reveal).getOrElse("")
+          request.setHeader(client.configuration.getTokenName, tokenValue)
+        case _ =>
+      }
+      client
+    }
+
+    def execute(implicit client: HttpClient[A]): CloseableHttpResponse =
+      Try {
+        client.log.info("request to {0}", request.getURI.toString)
+        client.httpClient.execute(request)
+      } match {
+        case Failure(e) => throw new ConnectorIOException(e.getMessage, e)
+        case Success(v) => v
+      }
+  }
+
+  implicit class ResponseMethods[A <: HttpConfiguration](val response: CloseableHttpResponse) {
+    def getContent(fail: Boolean)(implicit client: HttpClient[A]): Option[String] =
+      Try(Option(response.getEntity).map(EntityUtils.toString)) match {
+        case Failure(e) =>
+          if (fail) {
+            throw new ConnectorIOException(e.getMessage, e)
+          } else {
+            client.log.warn(e, "{0}", e.getMessage)
+            None
+          }
+        case Success(v) => v
+      }
+
+    def process(validCodes: Seq[Int], errorCodes: Seq[Int])(implicit client: HttpClient[A]): Option[String] =
+      this.process(validCodes, errorCodes, contentFail = false)
+
+    def process(validCodes: Seq[Int], errorCodes: Seq[Int], contentFail: Boolean)(implicit client: HttpClient[A]): Option[String] = {
+      val statusCode = response.getStatusLine.getStatusCode
+      val content = this.getContent(contentFail)
+      if (! validCodes.contains(statusCode)) {
+        val reason = response.getStatusLine.getReasonPhrase
+        val message = s"HTTP error: $statusCode $reason ${content.getOrElse("")}"
+        val exception = if (errorCodes.contains(statusCode)) {
+          statusCode match {
+            case 400 | 405 | 406 =>
+              new ConnectorIOException(message)
+            case 401 | 402 | 403 | 407 =>
+              new PermissionDeniedException(message)
+            case 404 | 410 =>
+              new UnknownUidException(message)
+            case 408 =>
+              new OperationTimeoutException(message)
+            case 409 =>
+              new AlreadyExistsException(message)
+            case 412 =>
+              new PreconditionFailedException(message)
+            case 418 | 501 =>
+              new UnsupportedOperationException(message)
+            case _ =>
+              new ConnectorException(message)
+          }
+        } else new ConnectorException(message)
+        this.tryClose
+        throw exception
+      } else {
+        this.tryClose
+        content
+      }
+    }
+
+    def tryClose(implicit client: HttpClient[A]): Unit =
+      Try(response.close()) match {
+        case Failure(e) => client.log.warn(e, "{0}", e.getMessage)
+        case Success(_) =>
+      }
   }
 
 }
