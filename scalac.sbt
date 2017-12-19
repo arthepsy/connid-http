@@ -12,9 +12,10 @@ scalacOptions ++= {
     "-feature",                              // Emit warning and location for usages of features that should be imported explicitly.
     "-unchecked",                            // Enable additional warnings where generated code depends on assumptions.
     "-Xfatal-warnings"                       // Fail the compilation if there are any warnings.
-  ) ++ cmp(vn, -1, Seq(0, 2, 0), Seq(
+  ) ++ cmp(vn, -1, Seq(0, 4, 0), Seq(
+    "-explain-implicits"                     // Explain implicit search errors in more detail.
+  )) ++ cmp(vn, -1, Seq(0, 5, 0), Seq(
     "-explain",                              // Explain errors in more detail.
-    "-explain-implicits",                    // Explain implicit search errors in more detail.
     "-explain-types"                         // Explain type errors in more detail.
   )) ++ cmp(vn, 1, Seq(2, 10, 0), Seq(
     "-explaintypes",                         // Explain type errors in more detail.
