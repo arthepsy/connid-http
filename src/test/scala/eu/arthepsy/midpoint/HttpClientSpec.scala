@@ -410,14 +410,14 @@ class HttpClientSpec extends BaseFunSuite {
   private def getBasicAuthRequestStatusCode(config: HttpConfiguration) = {
     val client = HttpClient(config)
     val url = "/protected"
-    allowBasicAuth(scope.wireMockRule, url)
+    scope.wireMockRule.respond(url, BASIC)
     this.getResponse(client, url).getStatusLine.getStatusCode
   }
 
   private def getTokenAuthRequestStatusCode(config: HttpConfiguration) = {
     val client = HttpClient(config)
     val url = "/protected"
-    allowTokenAuth(scope.wireMockRule, url)
+    scope.wireMockRule.respond(url, TOKEN)
     this.getResponse(client, url).getStatusLine.getStatusCode
   }
 
@@ -447,7 +447,7 @@ class HttpClientSpec extends BaseFunSuite {
     config.setProxyPort(proxyMock.port)
     val client = HttpClient(config)
     val url = "/protected"
-    allowBasicAuth(scope.wireMockRule, url)
+    scope.wireMockRule.respond(url, BASIC)
     this.getResponse(client, url).getStatusLine.getStatusCode shouldBe HttpStatus.SC_OK
   }
 
@@ -461,7 +461,7 @@ class HttpClientSpec extends BaseFunSuite {
   test("UnauthorizedNoAuthHeader") {
     implicit val client: HttpClient[HttpConfiguration] = HttpClient(scope.getConfig(false, BASIC, true))
     val url = "/protected"
-    allowBasicAuth(scope.wireMockRule, url)
+    scope.wireMockRule.respond(url, BASIC)
     val req = client.createRequest(client.createUri(url), classOf[HttpGet], false)
     req.asJson.execute.getStatusLine.getStatusCode shouldBe HttpStatus.SC_UNAUTHORIZED
   }

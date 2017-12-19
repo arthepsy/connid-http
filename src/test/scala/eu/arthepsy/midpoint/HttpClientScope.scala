@@ -23,11 +23,12 @@
 
 package eu.arthepsy.midpoint
 
+import com.github.tomakehurst.wiremock.client.MappingBuilder
 import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig
 import com.github.tomakehurst.wiremock.junit.WireMockRule
 import com.github.tomakehurst.wiremock.stubbing.StubMapping
-import eu.arthepsy.midpoint.HttpConfiguration.{BASIC, TOKEN}
+import eu.arthepsy.midpoint.HttpConfiguration.{AuthMethod, BASIC, NONE, TOKEN}
 import org.identityconnectors.common.security.GuardedString
 
 class HttpClientScope[A <: HttpConfiguration] {
@@ -84,12 +85,17 @@ object HttpClientScope {
   val DefaultTokenName = "Token"
   val DefaultTokenValue = "abc123"
 
+  val DefaultStatusCode = 200
+  val DefaultResponse = ""
+  val DefaultJsonResponse = "{}"
+  val DefaultXmlResponse =  "<?xml version='1.0' encoding='UTF-8'?>"
+
   val DefaultStub: StubMapping =
     get(anyUrl)
     .atPriority(5)
     .willReturn(aResponse
       .withStatus(401)
-      .withBody("{\"code\":401,\"message\":\"Bad credentials\"}"))
+      .withBody(DefaultResponse))
     .build
 
   implicit def b2b[A](x: Boolean): Option[Boolean] = Option(x)
@@ -100,23 +106,63 @@ object HttpClientScope {
     wireMockRule
   }
 
-  def allowBasicAuth(wireMockRule: WireMockRule, url: String): Unit = {
-    wireMockRule.stubFor(
-      get(urlPathEqualTo(url))
-        .withBasicAuth(DefaultUsername, DefaultPassword)
-        .willReturn(aResponse
-          .withStatus(200)
-          .withBody("{}")))
-    ()
+  implicit class WireMockResponse(val wmock: WireMockRule) {
+    private[this] def addAuthentication(mapping: MappingBuilder, authMethod: AuthMethod) = {
+      authMethod match {
+        case BASIC => mapping.withBasicAuth(DefaultUsername, DefaultPassword)
+        case TOKEN => mapping.withHeader(DefaultTokenName, equalTo(DefaultTokenValue))
+        case _ => mapping
+      }
+    }
+    def respond(url: String): Unit =
+      this.respond(url, NONE, DefaultResponse, DefaultStatusCode)
+    def respond(url: String, body: String): Unit =
+      this.respond(url, NONE, body, DefaultStatusCode)
+    def respond(url: String, body: String, status: Int): Unit =
+      this.respond(url, NONE, body, status)
+    def respond(url: String, authMethod: AuthMethod, body: String = DefaultResponse, status: Int = DefaultStatusCode): Unit = {
+      var mapping: MappingBuilder = get(urlPathEqualTo(url))
+      mapping = this.addAuthentication(mapping, authMethod)
+      wmock.stubFor(mapping.willReturn(aResponse().withStatus(status).withBody(body)))
+      ()
+    }
+    def respondJson(url: String): Unit =
+      this.respondJson(url, NONE, DefaultJsonResponse, DefaultStatusCode)
+    def respondJson(url: String, body: String): Unit =
+      this.respondJson(url, NONE, body, DefaultStatusCode)
+    def respondJson(url: String, body: String, status: Int): Unit =
+      this.respondJson(url, NONE, body, status)
+    def respondJson(url: String, authMethod: AuthMethod, body: String = DefaultJsonResponse, status: Int = DefaultStatusCode): Unit = {
+      var mapping: MappingBuilder = get(urlPathEqualTo(url))
+      mapping = this.addAuthentication(mapping, authMethod)
+      wmock.stubFor(mapping.willReturn(okJson(body).withStatus(status)))
+      ()
+    }
+    def respondXml(url: String): Unit =
+      this.respondXml(url, NONE, DefaultXmlResponse, DefaultStatusCode)
+    def respondXml(url: String, body: String): Unit =
+      this.respondXml(url, NONE, body, DefaultStatusCode)
+    def respondXml(url: String, body: String, status: Int): Unit =
+      this.respondXml(url, NONE, body, status)
+    def respondXml(url: String, authMethod: AuthMethod, body: String = DefaultXmlResponse, status: Int = DefaultStatusCode): Unit = {
+      var mapping: MappingBuilder = get(urlPathEqualTo(url))
+      mapping = this.addAuthentication(mapping, authMethod)
+      wmock.stubFor(mapping.willReturn(okXml(body).withStatus(status)))
+      ()
+    }
+
+    def respondTextXml(url: String): Unit =
+      this.respondTextXml(url, NONE, DefaultXmlResponse, DefaultStatusCode)
+    def respondTextXml(url: String, body: String): Unit =
+      this.respondTextXml(url, NONE, body, DefaultStatusCode)
+    def respondTextXml(url: String, body: String, status: Int): Unit =
+      this.respondTextXml(url, NONE, body, status)
+    def respondTextXml(url: String, authMethod: AuthMethod, body: String = DefaultXmlResponse, status: Int = DefaultStatusCode): Unit = {
+      val mapping: MappingBuilder = get(urlPathEqualTo(url))
+      this.addAuthentication(mapping, authMethod)
+      wmock.stubFor(mapping.willReturn(okTextXml(body).withStatus(status)))
+      ()
+    }
   }
 
-  def allowTokenAuth(wireMockRule: WireMockRule, url: String): Unit = {
-    wireMockRule.stubFor(
-      get(urlPathEqualTo(url))
-        .withHeader(DefaultTokenName, equalTo(DefaultTokenValue))
-        .willReturn(aResponse
-          .withStatus(200)
-          .withBody("{}")))
-    ()
-  }
 }
