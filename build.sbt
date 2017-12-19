@@ -8,6 +8,7 @@ lazy val root = (project in file("."))
     description := "Library for http-based ConnId connectors",
 
     scalaVersion := "2.12.4",
+    crossSbtVersions := Seq("1.0.4", "0.13.16"),
     crossScalaVersions := Seq(scalaVersion.value, "2.11.12", "2.13.0-M2", "0.5.0-RC1"),
 
     resolvers ++= Seq(
