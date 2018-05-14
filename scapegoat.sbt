@@ -1,4 +1,4 @@
-scapegoatVersion in ThisBuild := "1.3.3"
+scapegoatVersion in ThisBuild := "1.3.4"
 
 val scapegoatAvailable = Def.setting {
   val versions = "sbt " + sbtVersion.value +
@@ -17,7 +17,7 @@ libraryDependencies --= libraryDependencies.value.filter(_.name.startsWith("scal
 libraryDependencies ++= {
   if (scapegoatAvailable.value._1) {
     Seq(
-      "com.sksamuel.scapegoat" % ("scalac-scapegoat-plugin" + "_" + scalaBinaryVersion.value) % scapegoatVersion.value % "compile"
+      "com.sksamuel.scapegoat" % ("scalac-scapegoat-plugin" + "_" + scalaBinaryVersion.value) % scapegoatVersion.value % "provided"
     )
   } else {
     Seq.empty
